@@ -60,14 +60,6 @@ struct dirEntry
 	char name[20];      // file or sub dir name, can be extended to 50 Bytes
 };
 
-//directory entry in block (64 bytes)
-// struct dir_64
-// {
-// 	int inode;
-// 	int type;
-// 	int length;
-// 	char name[MAX_FILE_NAME_LENGTH];    //less then 52 Bytes
-// };
 
 // directory block struct 
 struct dir
@@ -101,13 +93,6 @@ extern int my_cat ();
 extern int my_cp ();
 
 
-//bitmap operation
-extern void set_map(int blk, int i);
-extern int get_inode();
-extern int get_block();
-
-
-
 //provided by the lower layer. Device operation
 typedef char block [BLOCKSIZE];
 
@@ -116,5 +101,10 @@ extern int read_block (int block_num, void * block);
 extern int write_block (int block_num, void * block);
 extern int read_inode (int inum, void * inode);
 extern int write_inode (int inum, void * inode);
+
+//bitmap operation
+extern void set_map(int blk, int i);
+extern int get_inode();
+extern int get_block();
 
 #endif

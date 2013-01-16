@@ -1,11 +1,11 @@
-#include <simdisk.h>
+#include "simdisk.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #define MAX_LEVEL 10     //max level number of directory
 
-int block_num = 102400       //total number of block in the whole disk
+// int block_num = 102400       //total number of block in the whole disk
 
 
 /* check to see if the device already has a file system on it,
@@ -39,6 +39,7 @@ void my_mkfs (const char * path) {
 	/* set bitmap in block 1 and 14: 1000 0000 */
 	*tmp = 0x80;  
 	write_block(BLOCK_MAP_START, tmp);
+	*tmp = 0xc0;          // the first inode will be left empty, so the bitmap for inode should be 1100 0000
 	write_block(INODE_MAP_START, tmp);
 
 	/* root inode initial */
@@ -79,7 +80,7 @@ void my_mkfs (const char * path) {
 }
 
 
-/* find the inode of path, including dir or file */
+/* find the inode of path, including dir or file, judged by the last char */
 struct inode *find(const char *path) {
 	struct inode *root = (struct inode *) malloc(sizeof(struct inode));
 	struct inode *tmp = root;
@@ -96,7 +97,7 @@ struct inode *find(const char *path) {
 		return root;
 	}
 
-	/* parse the path , store each subdir in arg[]*/
+	/* parse the path , store each subdir in arg[] */
 	if (path[0] == '/') {        // absulotely path
 		i = 1;
 		absu = 1;     
