@@ -3,8 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MAX_LEVEL 10     //max level number of directory
-
 // int block_num = 102400       //total number of block in the whole disk
 
 
@@ -43,7 +41,7 @@ void my_mkfs (const char * path) {
 	write_block(INODE_MAP_START, tmp);
 
 	/* root inode initial */
-	root->type = DIR;
+	root->type = DIR_TYPE;
 	root->num = 1;                // the second inode is root inode, in block 16, inode number is 1, not 0
 	root->size = 1;               // 1 KB for 1 block
 	root->uid = 0;
@@ -59,15 +57,15 @@ void my_mkfs (const char * path) {
 	/*printf("inode table initialized\n");*/
 
 	/* root dir block initial */
-	root_block->dirEntry[0]->inode = 1;
-	root_block->dirEntry[0]->type = DIR;
-	root_block->dirEntry[0]->length = 32;
-	strcpy(root_block->dirEntry[0]->name, ".");     // itself
+	root_block->dentry[0].inode = 1;
+	root_block->dentry[0].type = DIR_TYPE;
+	root_block->dentry[0].length = 32;
+	strcpy(root_block->dentry[0].name, ".");     // itself
 
-	root_block->dirEntry[1]->inode = 1;
-	root_block->dirEntry[1]->type = DIR;
-	root_block->dirEntry[1]->length = 32;
-	strcpy(root_block->dirEntry[1]->name, "..");    // parents dir, also itself
+	root_block->dentry[1].inode = 1;
+	root_block->dentry[1].type = DIR_TYPE;
+	root_block->dentry[1].length = 32;
+	strcpy(root_block->dentry[1].name, "..");    // parents dir, also itself
 
 	write_block(BLOCK_TABLE_START, root_block);
 
@@ -135,15 +133,15 @@ struct inode *find(const char *path) {
 			if (tmp->blocks[j] <= 0) continue;
 			read_block(tmp->blocks[j], direc);
 			for (k = 0; k < 32; k ++) {
-				if (direc->dirEntry[k]->inode == 0) continue;
-				if (d == 1 && direc->dirEntry[k]->type == FILE) continue;     //type matching
-				if (d == 0 && direc->dirEntry[k]->type == DIR) continue;
-				if (!strcmp(direc->dirEntry[k]->name, arg[i])) {
-					read_inode(direc->dirEntry[k]->inode, tmp);
+				if (direc->dentry[k].inode == 0) continue;
+				if (d == 1 && direc->dentry[k].type == FILE_TYPE) continue;     //type matching
+				if (d == 0 && direc->dentry[k].type == DIR_TYPE) continue;
+				if (!strcmp(direc->dentry[k].name, arg[i])) {
+					read_inode(direc->dentry[k].inode, tmp);
 					flag = 1;            // found!
 					break;
 				}
-				if(direc->dirEntry[k]->length == 64) k++;      // cost two entry space
+				if(direc->dentry[k].length == 64) k++;      // cost two entry space
 			}
 			if (k < 32) break; 
 		}

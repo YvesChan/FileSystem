@@ -58,7 +58,7 @@ int my_creat(const char * path) {
 		printf("No such directory: %s\n", dir_name);
 		return -1;
 	}
-	if(cur->type == FILE) {
+	if(cur->type == FILE_TYPE) {
 		printf("%s is a file\n", dir_name);
 		return -1;
     	}
@@ -66,9 +66,9 @@ int my_creat(const char * path) {
 	/* Judged if exists a file with same name, otherwise find a empty position in the folder */
 	for(i = 0; i < 10; i++) {
 		if(cur->blocks[i] == -1) continue;
-		read_block(cur->blocks[i], tmp_direc);          // load dir block
+		read_block(cur->blocks[i], &tmp_direc);          // load dir block
 		for(j = 0; j < 32; j ++){
-			if(tmp_direc.dirEntry[j]->inode != 0 && tmp_direc.dirEntry[j]->type = FILE && strcmp(tmp_direc.dirEntry[j]->name, file_name) == 0) {
+			if(tmp_direc.dentry[j].inode != 0 && tmp_direc.dentry[j].type == FILE_TYPE && strcmp(tmp_direc.dentry[j].name, file_name) == 0) {
 				printf("File already exists\n");
 				return -1;
 			}
@@ -77,9 +77,9 @@ int my_creat(const char * path) {
 
 	for(i = 0; i < 10; i ++) {
 		if(cur->blocks[i] != -1) {
-			read_block(cur->blocks[i], tmp_direc);
+			read_block(cur->blocks[i], &tmp_direc);
 			for(j = 0; j < 32; j ++){
-				if(tmp_direc.dirEntry[j]->inode == 0) {      // found empty dir entry, mark position
+				if(tmp_direc.dentry[j].inode == 0) {      // found empty dir entry, mark position
 					empty_dentry = j;
 					break;
 				}
@@ -88,7 +88,7 @@ int my_creat(const char * path) {
 		}
 		else {              // current dir block is full, get a new dir block
 			cur->blocks[i] = get_block();
-			read_block(cur->blocks[i], tmp_direc);
+			read_block(cur->blocks[i], &tmp_direc);
 			empty_dentry = 0;
 			break;
 		}
@@ -98,16 +98,16 @@ int my_creat(const char * path) {
 	newinode = get_inode();
 	if(newinode == -1)
 		return -1;
-	tmp_direc.dirEntry[empty_dentry]->inode = newinode;
-	tmp_direc.dirEntry[empty_dentry]->type = FILE;
-	if(strlen(file_name) < 32) tmp_direc.dirEntry[empty_dentry]->length = 32;
-	else tmp_direc.dirEntry[empty_dentry]->length = 32;
-	strncpy(tmp_direc.dirEntry[empty_dentry]->name, file_name, strlen(file_name));
-	write_block(cur->blocks[i], tmp_direc);       // update dir block(added a new dirEntry)
+	tmp_direc.dentry[empty_dentry].inode = newinode;
+	tmp_direc.dentry[empty_dentry].type = FILE_TYPE;
+	if(strlen(file_name) < 32) tmp_direc.dentry[empty_dentry].length = 32;
+	else tmp_direc.dentry[empty_dentry].length = 32;
+	strncpy(tmp_direc.dentry[empty_dentry].name, file_name, strlen(file_name));
+	write_block(cur->blocks[i], &tmp_direc);       // update dir block(added a new dirEntry)
 
 	// set up new file's inode
-	read_inode(newinode, tmp_inode);
-	tmp_inode.type = FILE;
+	read_inode(newinode, &tmp_inode);
+	tmp_inode.type = FILE_TYPE;
 	tmp_inode.num = newinode;
 	strcpy(tmp_inode.mode, "rw-rw-r--");       // default mode is 664
 	tmp_inode.size = 0;              // in bytes
@@ -119,7 +119,7 @@ int my_creat(const char * path) {
 		tmp_inode.blocks[i] = -1;
 	for(i = 0; i < 30; i ++)
 		tmp_inode.ind_blocks[i] = -1;
-	write_inode(newinode, tmp_inode);
+	write_inode(newinode, &tmp_inode);
 
 	/* open the file */
 	int ret = -1;
@@ -132,5 +132,101 @@ int my_creat(const char * path) {
 	}
 	if (ret == -1) printf("No empty fd !\n");
 
+	free(cur);
 	return ret;
+}
+
+
+/* sequentially read from a file */
+int my_read(int fdd, void * buf, int cnt) {
+	int i, j, k;
+	int count = cnt;                               // Bytes remain to be read
+	int blknum = (count - 1) / 1024 + 1;           // Allocated block num for data
+	int indnum;
+	// int fpoff = fp % 1024;
+	struct inode this;
+	struct inode *node = &this;
+	struct inode *mi = (struct inode *)malloc(sizeof(struct inode));
+	int len = 0;            // file pointer offset
+	int temp = 0;           // every copy bytes
+	int flag = 0;
+	// int tempp = fp;
+	unsigned char tmp[1024];
+
+	read_inode(fd[fdd], &this);        // load file's inode
+
+	/* only need direct blocks */
+	if (blknum <= 10) {
+		if (count > 1024) temp = 1024;             // remain Bytes greater than 1024(block space)?
+		else temp = count;
+		for (i = 0; i < blknum; i ++) {
+			read_block(this.blocks[i], tmp);
+			memcpy(buf + len, tmp, temp);          // copy 'temp' Bytes
+			length += temp;                        // file offset 'temp' Bytes
+		}
+		break;
+	}
+
+
+
+	
+
+	/* need indirect blocks, firstly read from direct blocks */
+	for (i = 0; i < 10; i++) {
+		temp = 1024;
+
+		if (flag) {
+			read_block(this.blocks[i], tmp);
+			memcpy(buf + len - tempp, tmp, temp);
+			fp += temp;
+		} else {
+			if (len + temp >= tempp) {
+				temp = temp - fpoff;
+				if (temp > 0) {
+					read_block(this.blocks[i], tmp);
+					memcpy(buf, tmp + fpoff, temp);
+					fp += temp;
+					len += fpoff;
+				}
+				flag = 1;
+			}
+		}
+		len += temp;
+	}
+
+	blknum = blknum - 10;
+	indnum = blknum / 256 + 1;  /* number of indirect blocks needed */
+
+	/* read from indirect blocks */
+	for (i = 0; i < indnum; i++) {
+		struct ind_block ib;
+		read_block(this.ind_blocks[i], (char *) &ib);
+
+		for (j = 0; j < 256; j++) {
+			temp = 1024;
+			if ((temp + len) > count)
+				temp = count - len;
+			
+			if (flag) {
+		    		read_block(ib.blocks[j], tmp);
+				memcpy(buf + len - tempp, tmp, temp);
+				fp += temp;
+			} else {
+				if (len + temp >= tempp) {
+					temp = temp - fpoff;
+					if (temp > 0) {
+						read_block(ib.blocks[j], tmp);
+						memcpy(buf, tmp + fpoff, temp);
+						fp += temp;
+						len += fpoff;
+					}
+					flag = 1;
+				}
+			}
+			len += temp;		
+			if (blknum == (j + i * 256))
+				break; 
+		}
+	}
+	return len - tempp;
 }

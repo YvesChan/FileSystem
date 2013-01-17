@@ -12,8 +12,10 @@
 #define BLOCK_TABLE_START 2516    //inode table costs 2500 blocks 
 #define BLOCKSIZE 1024
 
-#define FILE 1
-#define DIR 2
+#define FILE_TYPE 1
+#define DIR_TYPE 2
+
+#define MAX_LEVEL 10     //max level number of directory
 
 
 int fd[MAX_OPEN_FILES];        // file description
@@ -34,7 +36,7 @@ struct super_block
 struct inode {
 	int type;                       /* 1 for file, 2 for dir */
 	int num;                        /* inode number */
-	int size                        /* file size */
+	int size;                        /* file size */
 	int uid;						/* user id */
 	int gid;						/* group id */
 	char mode[11];					/* ACL of inode */
@@ -61,10 +63,10 @@ struct dirEntry
 };
 
 
-// directory block struct 
+// directory block struct, has 32 dir entries space
 struct dir
 {
-	dirEntry dir[32];    // two 32B can cast to one 64B
+	struct dirEntry dentry[32];    // two 32B can cast to one 64B
 };
 
 //bitmap in block
@@ -101,6 +103,7 @@ extern int read_block (int block_num, void * block);
 extern int write_block (int block_num, void * block);
 extern int read_inode (int inum, void * inode);
 extern int write_inode (int inum, void * inode);
+extern struct inode *find(const char *path);
 
 //bitmap operation
 extern void set_map(int blk, int i);
